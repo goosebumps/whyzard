@@ -1,13 +1,24 @@
 {% block content %}
+
 <form action="" method="post" novalidate>
     {{ form.hidden_tag() }}
-    <div>
+    <div class="form-group">
         {{ form.searchterm.label }}<br>
         {{ form.searchterm(size=32) }}
     </div>
-    <div>
-        {{ form.shopname}}
+
+    <div class="form-group">
+        <ul class="list-group">
+            {% for subfield in form.shopname %}
+            <li class="list-group-item">
+                <div>{{ subfield }} {{ subfield.label }}</div>
+            </li>
+            {% endfor %}
+        </ul>
     </div>
-    <div>{{ form.submit() }}</div>
+
+    <div class="form-group">
+        {{ form.submit() }}
+    </div>
 </form>
 {% endblock %}

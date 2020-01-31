@@ -5,8 +5,5 @@ import shop
 
 class SearchForm(FlaskForm):
     searchterm = StringField('Zoekterm', validators=[DataRequired()])
-    # shopname = StringField('Shop', validators=[DataRequired()])
     shopname = RadioField('Shop', choices=[("all", "all")] + list(zip(shop.shop_list, shop.shop_list)))
-    # password = PasswordField('Password', validators=[DataRequired()])
-    # remember_me = BooleanField('Remember Me')
     submit = SubmitField('Zoek')

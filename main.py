@@ -1,10 +1,12 @@
 # importing modules
 from flask import Flask, render_template, escape, flash, redirect
+from flask_bootstrap import Bootstrap
 import shop
 import forms
 
 # declaring app name
 app = Flask(__name__)
+Bootstrap(app)
 app.config['SECRET_KEY'] = "datraadjenooitpannekoek"
 
 @app.route("/", methods=['GET', 'POST'])
