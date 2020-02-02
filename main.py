@@ -12,7 +12,7 @@ app.config['SECRET_KEY'] = "datraadjenooitpannekoek"
 @app.route("/", methods=['GET', 'POST'])
 def searchshoppage():
     form = forms.SearchForm()
-    shop_result = shop.get_shop_results(form.shopname.data, form.searchterm.data)
+    shop_result = shop.get_shop_results(form)
     return render_template(
         "index.html",
         shop_list=shop.shop_list,

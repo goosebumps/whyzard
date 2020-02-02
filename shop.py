@@ -1,16 +1,15 @@
 from bs4 import BeautifulSoup
 import requests
 import re
+from currency import StringToCurrency
 
+def remove_whitespace(s):
+    return re.sub(r"\s\s+", " ", s)
 
 #     "bol":
 #     {"url": "https://www.bol.com/nl/s/algemeen/zoekresultaten/Ntt/",
 #      "title": "//a[@class='product-title px_list_page_product_click']/text()",
 #      "price": "//span[@class='promo-price']/text()",
-
-
-def remove_whitespace(s):
-    return re.sub(r"\s\s+", " ", s)
 
 
 def get_passie_voor_whisky_results(shopname, search_term):
@@ -32,7 +31,7 @@ def get_passie_voor_whisky_results(shopname, search_term):
         image = (
             prod.find("div", class_="pro_first_box").find("a").find("img").get("src")
         )
-        price = remove_whitespace(price)
+        price = StringToCurrency(price)
         results += [
             {"name": name, "price": price, "url": url, "shop": shopname, "img": image}
         ]
@@ -49,6 +48,7 @@ def get_d12_results(shopname, search_term):
     results = []
     for prod in all_products_soup:
         price = prod.find("span", class_="product_aanbieding_prijs").get_text()
+        price = StringToCurrency(price)
         name = prod.find("div", class_="product_title").get_text()
         url = "https://drankdozijn.nl" + prod.get("href")
         image = prod.find("div", class_="product_image").find("img").get("src")
@@ -66,6 +66,7 @@ def get_theoldpipe_results(shopname, search_term):
     results = []
     for prod in all_products_soup:
         price = prod.find("span", class_="price-new").get_text()
+        price = StringToCurrency(price)
         name = prod.find("h3").find("a").get_text()
         url = prod.find("h3").find("a").get("href")
         image = prod.find("div", class_="image noborder").find("img").get("src")
@@ -86,8 +87,8 @@ def get_whiskysite_results(shopname, search_term):
     for prod in all_products_soup:
         name = prod.find("a", class_="title").get_text()
         price = prod.find("div", class_="product-block-price").get_text()
+        price = StringToCurrency(price)
         url = prod.find("a", class_="title").get("href")
-        price = remove_whitespace(price)
         name = remove_whitespace(name)
         image = prod.find("div", class_="product-block-image").find("img").get("src")
         results += [
@@ -104,17 +105,26 @@ shop_list = {
 }
 
 
-def get_shop_results(shopname, search_term):
-    reslt = []
+def get_shop_results(form):
+    result = []
+    search_term = form.searchterm.data
+    shopname = form.shopname.data
+
     if not search_term or search_term == "None":
-        return reslt
+        return result
 
     shopnames = (
         shop_list.keys() if shopname == "all" or shopname == "None" else [shopname]
     )
     for sn in shopnames:
-        reslt += shop_list[sn](sn, search_term)
-    return reslt
+        result += shop_list[sn](sn, search_term)
+
+    # filter prices
+    if (form.minPrice.data):
+        result = [r for r in result if r["price"] >= form.minPrice.data]
+    if (form.maxPrice.data):
+        result = [r for r in result if r["price"] <= form.maxPrice.data]
+    return result
 
 
 if __name__ == "__main__":

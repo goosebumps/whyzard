@@ -18,6 +18,14 @@
     </div>
 
     <div class="form-group">
+        {{ form.minPrice.label }}
+        {{ form.minPrice() }}
+    </div>
+    <div class="form-group">
+        {{ form.maxPrice.label }}
+        {{ form.maxPrice() }}
+    </div>
+    <div class="form-group">
         {{ form.submit() }}
     </div>
 </form>
