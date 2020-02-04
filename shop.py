@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 import requests
 import re
 from currency import StringToCurrency
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+
 
 def remove_whitespace(s):
     return re.sub(r"\s\s+", " ", s)
@@ -26,14 +29,18 @@ def get_passie_voor_whisky_results(shopname, search_term):
             .find("meta", itemprop="price")
             .get("content")
         )
-        name = prod.find("div", class_="pro_second_box").find("h5").find("a").get_text()
-        url = prod.find("div", class_="pro_second_box").find("h5").find("a").get("href")
+        name = prod.find("div", class_="pro_second_box").find(
+            "h5").find("a").get_text()
+        url = prod.find("div", class_="pro_second_box").find(
+            "h5").find("a").get("href")
         image = (
-            prod.find("div", class_="pro_first_box").find("a").find("img").get("src")
+            prod.find("div", class_="pro_first_box").find(
+                "a").find("img").get("src")
         )
         price = StringToCurrency(price)
         results += [
-            {"name": name, "price": price, "url": url, "shop": shopname, "img": image}
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
         ]
     return results
 
@@ -53,7 +60,8 @@ def get_d12_results(shopname, search_term):
         url = "https://drankdozijn.nl" + prod.get("href")
         image = prod.find("div", class_="product_image").find("img").get("src")
         results += [
-            {"name": name, "price": price, "url": url, "shop": shopname, "img": image}
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
         ]
     return results
 
@@ -69,9 +77,11 @@ def get_theoldpipe_results(shopname, search_term):
         price = StringToCurrency(price)
         name = prod.find("h3").find("a").get_text()
         url = prod.find("h3").find("a").get("href")
-        image = prod.find("div", class_="image noborder").find("img").get("src")
+        image = prod.find("div", class_="image noborder").find(
+            "img").get("src")
         results += [
-            {"name": name, "price": price, "url": url, "shop": shopname, "img": image}
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
         ]
     return results
 
@@ -90,9 +100,11 @@ def get_whiskysite_results(shopname, search_term):
         price = StringToCurrency(price)
         url = prod.find("a", class_="title").get("href")
         name = remove_whitespace(name)
-        image = prod.find("div", class_="product-block-image").find("img").get("src")
+        image = prod.find(
+            "div", class_="product-block-image").find("img").get("src")
         results += [
-            {"name": name, "price": price, "url": url, "shop": shopname, "img": image}
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
         ]
     return results
 
@@ -106,25 +118,38 @@ shop_list = {
 
 
 def get_shop_results(form):
-    result = []
+    results = []
     search_term = form.searchterm.data
     shopname = form.shopname.data
 
     if not search_term or search_term == "None":
-        return result
+        return results
 
     shopnames = (
-        shop_list.keys() if shopname == "all" or shopname == "None" else [shopname]
+        shop_list.keys() if shopname == "all" or shopname == "None" else [
+            shopname]
     )
-    for sn in shopnames:
-        result += shop_list[sn](sn, search_term)
+
+    with ThreadPoolExecutor(max_workers=len(shop_list)) as e:
+        futures = {
+            e.submit(shop_list[sn], sn, search_term): sn for sn in shopnames}
+
+        for future in as_completed(futures):
+            sn = futures[future]
+            try:
+                res = future.result()
+            except Exception as exc:
+                print('%r generated an exception: %s' % (sn, exc))
+            else:
+                print('%r page is %d entries' % (sn, len(res)))
+                results += res
 
     # filter prices
     if (form.minPrice.data):
-        result = [r for r in result if r["price"] >= form.minPrice.data]
+        results = [r for r in results if r["price"] >= form.minPrice.data]
     if (form.maxPrice.data):
-        result = [r for r in result if r["price"] <= form.maxPrice.data]
-    return result
+        results = [r for r in results if r["price"] <= form.maxPrice.data]
+    return results
 
 
 if __name__ == "__main__":
@@ -133,5 +158,7 @@ if __name__ == "__main__":
     # results = get_shop_results("d12", search_term)
     # results += get_shop_results("the_old_pipe", search_term)
     # results = get_shop_results("whiskysite", search_term)
-    results = get_shop_results("passie_voor_whisky", search_term)
+    # results = get_shop_results("passie_voor_whisky", search_term)
+
+    results = get_shop_results()
     [print(r) for r in results]
