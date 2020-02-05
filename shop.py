@@ -109,11 +109,36 @@ def get_whiskysite_results(shopname, search_term):
     return results
 
 
+def get_whiskybase_shop_results(shopname, search_term):
+    page = requests.get(
+        "https://shop.whiskybase.com/nl/search/" + search_term,
+        cookies=dict(age_check="done"),
+    )
+    soup = BeautifulSoup(page.content, "html.parser")
+    all_products_soup = soup.find_all(
+        "div", class_="product-block")
+    results = []
+    for prod in all_products_soup:
+        name = prod.find("a", class_="title").get_text()
+        price = prod.find("div", class_="product-block-price").get_text()
+        price = StringToCurrency(price)
+        url = prod.find("a", class_="title").get("href")
+        name = remove_whitespace(name)
+        image = prod.find(
+            "div", class_="product-block-image").find("img").get("src")
+        results += [
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
+        ]
+    return results
+
+
 shop_list = {
     "d12": get_d12_results,
     "the_old_pipe": get_theoldpipe_results,
     "whiskysite": get_whiskysite_results,
     "passie_voor_whisky": get_passie_voor_whisky_results,
+    "whiskybase_shop": get_whiskybase_shop_results,
 }
 
 
@@ -159,6 +184,7 @@ if __name__ == "__main__":
     # results += get_shop_results("the_old_pipe", search_term)
     # results = get_shop_results("whiskysite", search_term)
     # results = get_shop_results("passie_voor_whisky", search_term)
+    results = get_whiskybase_shop_results("whiskybas_shop", search_term)
 
-    results = get_shop_results()
+    # results = get_shop_results()
     [print(r) for r in results]

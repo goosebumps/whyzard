@@ -9,6 +9,7 @@ app = Flask(__name__)
 Bootstrap(app)
 app.config['SECRET_KEY'] = "datraadjenooitpannekoek"
 
+
 @app.route("/", methods=['GET', 'POST'])
 def searchshoppage():
     form = forms.SearchForm()
@@ -25,4 +26,3 @@ def searchshoppage():
 # start listening
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, port="3000", host="127.0.0.1")
-
