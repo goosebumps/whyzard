@@ -5,6 +5,8 @@ from currency import StringToCurrency
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
+headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+
 
 def remove_whitespace(s):
     return re.sub(r"\s\s+", " ", s)
@@ -18,7 +20,7 @@ def remove_whitespace(s):
 def get_passie_voor_whisky_results(shopname, searchterm):
     page = requests.get(
         "https://www.passievoorwhisky.nl/nl/zoeken?controller=search&orderby=position&orderway=desc&search_query="
-        + searchterm
+        + searchterm, headers=headers
     )
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all("div", class_="product-container")
@@ -48,7 +50,7 @@ def get_passie_voor_whisky_results(shopname, searchterm):
 def get_d12_results(shopname, searchterm):
     page = requests.get(
         "https://drankdozijn.nl/zoeken?zoekterm=" + searchterm,
-        cookies=dict(validatie_cookie="true"),
+        cookies=dict(validatie_cookie="true"), headers=headers
     )
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all("a", class_="product_top")
@@ -67,7 +69,7 @@ def get_d12_results(shopname, searchterm):
 
 
 def get_theoldpipe_results(shopname, searchterm):
-    page = requests.get("https://www.theoldpipe.com/nl/search/" + searchterm)
+    page = requests.get("https://www.theoldpipe.com/nl/search/" + searchterm, headers=headers)
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all("div", class_="product-block-inner")
 
@@ -89,7 +91,7 @@ def get_theoldpipe_results(shopname, searchterm):
 def get_whiskysite_results(shopname, searchterm):
     page = requests.get(
         "https://www.whiskysite.nl/nl/search/" + searchterm,
-        cookies=dict(age_check="done"),
+        cookies=dict(age_check="done"), headers=headers
     )
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all("div", class_="product-block")
@@ -112,7 +114,7 @@ def get_whiskysite_results(shopname, searchterm):
 def get_whiskybase_shop_results(shopname, searchterm):
     page = requests.get(
         "https://shop.whiskybase.com/nl/search/" + searchterm,
-        cookies=dict(age_check="done"),
+        cookies=dict(age_check="done"), headers=headers
     )
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all(
