@@ -4,6 +4,8 @@ from flask_wtf.csrf import CSRFProtect
 from flask_bootstrap import Bootstrap
 import shop
 import forms
+from threading import Thread
+import argparse
 
 # declaring app name
 csrf = CSRFProtect()
@@ -11,6 +13,7 @@ app = Flask(__name__)
 csrf.init_app(app)
 Bootstrap(app)
 app.config['SECRET_KEY'] = "datraadjenooitpannekoek"
+
 
 @app.route("/", methods=['GET', 'POST'])
 def root():
@@ -40,5 +43,15 @@ def searchshoppage(searchterm, shopname=None, minPrice=None, maxPrice=None):
 
 
 # start listening
+def run(ip):
+    app.run(debug=True, use_reloader=False, port="3000", host=ip)
+
+
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False, port="3000", host="127.0.0.1")
+    parser = argparse.ArgumentParser(prog='whyzard')
+    parser.add_argument('--ip', nargs='?',
+                        help='Ip adres to serve on', default="0.0.0.0")
+    args = parser.parse_args()
+
+    t = Thread(target=run, kwargs=dict(ip=args.ip))
+    t.start()
