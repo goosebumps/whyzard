@@ -5,7 +5,8 @@ from currency import StringToCurrency
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
 
 
 def remove_whitespace(s):
@@ -69,7 +70,8 @@ def get_d12_results(shopname, searchterm):
 
 
 def get_theoldpipe_results(shopname, searchterm):
-    page = requests.get("https://www.theoldpipe.com/nl/search/" + searchterm, headers=headers)
+    page = requests.get(
+        "https://www.theoldpipe.com/nl/search/" + searchterm, headers=headers)
     soup = BeautifulSoup(page.content, "html.parser")
     all_products_soup = soup.find_all("div", class_="product-block-inner")
 
@@ -135,12 +137,38 @@ def get_whiskybase_shop_results(shopname, searchterm):
     return results
 
 
+def get_drankgigant_results(shopname, searchterm):
+    page = requests.get(
+        "https://www.drankgigant.nl/catalogsearch/result/?q=" + searchterm,
+        cookies=dict(age_check="done"), headers=headers
+    )
+    soup = BeautifulSoup(page.content, "html.parser")
+    all_products_soup = soup.find_all(
+        "div", class_="item product product-item")
+    results = []
+    for prod in all_products_soup:
+        name = prod.find("a", class_="product-item-link").get_text()
+        price = prod.find("span", class_="price").get_text()
+        price = StringToCurrency(price)
+        url = prod.find(
+            "a", class_="product-item-link").get("href")
+        name = remove_whitespace(name)
+        image = prod.find(
+            "img", class_="photo image").get("src")
+        results += [
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
+        ]
+    return results
+
+
 shoplist = {
     "d12": get_d12_results,
     "the_old_pipe": get_theoldpipe_results,
     "whiskysite": get_whiskysite_results,
     "passie_voor_whisky": get_passie_voor_whisky_results,
     "whiskybase_shop": get_whiskybase_shop_results,
+    "drankgigant": get_drankgigant_results,
 }
 
 
@@ -184,7 +212,8 @@ if __name__ == "__main__":
     # results += get_shop_results("the_old_pipe", searchterm)
     # results = get_shop_results("whiskysite", searchterm)
     # results = get_shop_results("passie_voor_whisky", searchterm)
-    results = get_whiskybase_shop_results("whiskybas_shop", searchterm)
+    # results = get_whiskybase_shop_results("whiskybas_shop", searchterm)
+    results = get_drankgigant_results("drankgigant", searchterm)
 
     # results = get_shop_results()
     [print(r) for r in results]
