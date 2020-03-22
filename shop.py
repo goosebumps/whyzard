@@ -4,6 +4,7 @@ import re
 from currency import StringToCurrency
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import json
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
@@ -136,6 +137,30 @@ def get_whiskybase_shop_results(shopname, searchterm):
         ]
     return results
 
+def get_vinabc_shop_results(shopname, searchterm):
+    page = requests.get(
+        r"https://vinabc.nl/nl/?option=com_universal_ajax_live_search&lang=nl-NL&module_id=177&search_exp=" + searchterm + r"&dojo_preventCache=1",
+        cookies=dict(age_check="done"), headers=headers
+    )
+    decoded_string = page.content.decode("unicode_escape")
+    decoded_string = decoded_string[decoded_string.index('['):] # strip the header text
+    decoded_string = decoded_string[:decoded_string.rindex(']')+1] # strip the header text
+    products = json.loads(decoded_string)
+    results = []
+    for prod in products:
+        name = prod['title']
+        url = prod['href']
+        image = BeautifulSoup(prod['product_img']).find("img").get("src")
+        name = prod['title']
+        #now open product page to obtain price
+        prodpage = requests.get(url)
+        prodsoup = BeautifulSoup(prodpage.content, "html.parser")
+        price = prodsoup.find('span', itemprop='price').get("content")
+        results += [
+            {"name": name, "price": price, "url": url,
+                "shop": shopname, "img": image}
+        ]
+    return results
 
 def get_drankgigant_results(shopname, searchterm):
     page = requests.get(
@@ -169,6 +194,7 @@ shoplist = {
     "passie_voor_whisky": get_passie_voor_whisky_results,
     "whiskybase_shop": get_whiskybase_shop_results,
     "drankgigant": get_drankgigant_results,
+    "vinabc": get_vinabc_shop_results,
 }
 
 
@@ -214,6 +240,7 @@ if __name__ == "__main__":
     # results = get_shop_results("passie_voor_whisky", searchterm)
     # results = get_whiskybase_shop_results("whiskybas_shop", searchterm)
     results = get_drankgigant_results("drankgigant", searchterm)
+    results = get_vinabc_shop_results("whiskybas_shop", searchterm)
 
     # results = get_shop_results()
     [print(r) for r in results]
