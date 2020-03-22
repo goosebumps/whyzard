@@ -26,9 +26,6 @@ def root():
 
 
 @app.route("/<searchterm>", methods=['GET', 'POST'])
-@app.route("/<searchterm>/<maxPrice>", methods=['GET', 'POST'])
-@app.route("/<searchterm>/<maxPrice>/<minPrice>", methods=['GET', 'POST'])
-@app.route("/<searchterm>/<maxPrice>/<minPrice>/<shopname>", methods=['GET', 'POST'])
 def searchshoppage(searchterm, shopname=None, minPrice=None, maxPrice=None):
     form = forms.SearchForm()
     shopresult = shop.get_shop_results(
