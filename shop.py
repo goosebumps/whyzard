@@ -142,7 +142,7 @@ def get_vinabc_shop_results(shopname, searchterm):
         r"https://vinabc.nl/nl/?option=com_universal_ajax_live_search&lang=nl-NL&module_id=177&search_exp=" + searchterm + r"&dojo_preventCache=1",
         cookies=dict(age_check="done"), headers=headers
     )
-    decoded_string = page.content.decode("unicode_escape")
+    decoded_string = page.content.decode("utf8")
     decoded_string = decoded_string[decoded_string.index('['):] # strip the header text
     decoded_string = decoded_string[:decoded_string.rindex(']')+1] # strip the header text
     products = json.loads(decoded_string)
@@ -156,9 +156,10 @@ def get_vinabc_shop_results(shopname, searchterm):
         prodpage = requests.get(url)
         prodsoup = BeautifulSoup(prodpage.content, "html.parser")
         price = prodsoup.find('span', itemprop='price').get("content")
+        abv = remove_whitespace(prodsoup.find('span', id='hikashop_product_custom_value_31').get_text())
         results += [
             {"name": name, "price": price, "url": url,
-                "shop": shopname, "img": image}
+                "shop": shopname, "img": image, "abv": abv}
         ]
     return results
 
@@ -239,8 +240,8 @@ if __name__ == "__main__":
     # results = get_shop_results("whiskysite", searchterm)
     # results = get_shop_results("passie_voor_whisky", searchterm)
     # results = get_whiskybase_shop_results("whiskybas_shop", searchterm)
-    results = get_drankgigant_results("drankgigant", searchterm)
-    results = get_vinabc_shop_results("whiskybas_shop", searchterm)
+    # results = get_drankgigant_results("drankgigant", searchterm)
+    results = get_vinabc_shop_results("vinabc", searchterm)
 
     # results = get_shop_results()
     [print(r) for r in results]

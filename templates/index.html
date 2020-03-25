@@ -17,13 +17,15 @@
     <thead>
         <td>Shop</td>
         <td>Naam</td>
-        <td>Prijs</td>
+        <td>Prijs [&#8364;]</td>
+        <td>Abv [&#37;]</td>
     </thead>
     {%for s in shopresult%}
     <tr>
         <td><a href={{s.url}}>{{s.shop}}</a></td>
         <td><a href={{s.url}}>{{s.name}}</a></td>
-        <td><a href={{s.url}}>{{s.price}}&#8364;</a></div>
+        <td><a href={{s.url}}>{{s.price}}</a></div>
+        <td><a href={{s.url}}>{{s.abv}}</a></td>
     </tr>
     {%endfor%}
 </table>
