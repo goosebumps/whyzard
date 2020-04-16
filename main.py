@@ -2,7 +2,7 @@
 from flask import Flask, render_template, escape, flash, redirect
 from flask_wtf.csrf import CSRFProtect
 from flask_bootstrap import Bootstrap
-import shop
+import shops
 import forms
 from threading import Thread
 import argparse
