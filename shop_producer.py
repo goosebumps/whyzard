@@ -12,10 +12,10 @@ from typing import IO
 import urllib.error
 import urllib.parse
 import shops
+from requests_futures.sessions import FuturesSession
 
 import aiofiles
 import aiohttp
-from aiohttp import ClientSession
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s:%(name)s: %(message)s",
@@ -28,53 +28,69 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 HREF_RE = re.compile(r'href="(.*?)"')
 
-async def fetch_html(url: str, session: ClientSession, **kwargs) -> str:
+async def fetch_html(url: str, session: FuturesSession, cookies, **kwargs) -> str:
     """GET request wrapper to fetch page HTML.
 
     kwargs are passed to `session.request()`.
     """
+    headers = {"User-Agent": 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:55.0)'}
+    future = session.get(url, cookies=cookies, headers=headers)
+    resp = future.result()
+    return resp.text
 
-    resp = await session.request(method="GET", url=url, **kwargs)
-    resp.raise_for_status()
-    logger.info("Got response [%s] for URL: %s", resp.status, url)
-    html = await resp.text()
-    return html
+async def update_products(queue_in: asyncio.Queue, queue_out: asyncio.Queue):
+    session = FuturesSession()
+    while True:
+        product = await queue_in.get()
+        if product is None:
+            queue_in.task_done()
+            await queue_out.put(None)
+            break
+        queue_in.task_done()
+        soup = await get_soup(product.update_url, session, product.shop.cookies)  #     soup = await get_soup(url, session, shop.cookies)
+        try:
+            updated_product = await product.shop.product_parser(product, soup)
+        except Exception as e:
+            logger.exception("Exception occured:  %s", getattr(e, "__dict__", {}))
+        await queue_out.put(product)
+        print(f'updated {product.shop.name} {product.name}')
 
-async def add_one_shop(queue: asyncio.Queue, shop: shops.Shop, search_term: str, session: ClientSession, **kwargs) -> set:
-    """Find HREFs in the HTML of `url`."""
-    found = set()
+async def get_soup(url: str, session: FuturesSession, cookies):
     try:
-        url = shop.search_url%(search_term)
-        html = await fetch_html(url=url, session=session, **kwargs)
+        html = await fetch_html(url=url, session=session, cookies=cookies)
     except (
         aiohttp.ClientError,
         aiohttp.http_exceptions.HttpProcessingError,
     ) as e:
         logger.error(
-            "aiohttp exception for %s [%s]: %s",
+            "aiohttp exception for %s [%s]: %s | %s",
             url,
             getattr(e, "status", None),
             getattr(e, "message", None),
+            getattr(e, "args", None),
         )
-        return found
+        return None
     except Exception as e:
-        logger.exception(
-            "Non-aiohttp exception occured:  %s", getattr(e, "__dict__", {})
-        )
-        return found
+        logger.exception("Non-aiohttp exception occured:  %s", getattr(e, "__dict__", {}))
+        return None
     else:
-        soup = BeautifulSoup(html, "html.parser")
-        await shop.parser(soup, queue)
+        return BeautifulSoup(html, "html.parser")
+
+async def add_one_shop(queue: asyncio.Queue, shop: shops.Shop, search_term: str, session: FuturesSession, **kwargs) -> set:
+    """Find HREFs in the HTML of `url`."""
+    url = shop.search_url%(search_term)
+    soup = await get_soup(url, session, shop.cookies)
+    await shop.parser(shop, soup, queue)
 
 async def bulk_crawl_and_write(queue: asyncio.Queue, shoplist: list, search_term: str, **kwargs) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
-    async with ClientSession() as session:
-        tasks = []
-        for shop in shoplist:
-            tasks.append(
-                add_one_shop(queue, shop, search_term, session=session, **kwargs)
-            )
-        await asyncio.gather(*tasks)
+    session =  FuturesSession()
+    tasks = []
+    for shop in shoplist:
+        tasks.append(
+            add_one_shop(queue, shop, search_term, session=session, **kwargs)
+        )
+    await asyncio.gather(*tasks)
     await queue.put(None)
 
 
@@ -87,15 +103,17 @@ async def queue_to_list(queue: asyncio.Queue):
             break
         queue.task_done()
         l.append( token)
-        print(f'added {token.name}')
+        print(f'unqueued {token.shop.name} {token.name} {token.abv} {token.volume}')
     return l
 
 async def test_search_and_print():
     search_term  = "deanston"
     queue = asyncio.Queue()
+    queue_updated = asyncio.Queue()
 
-    list_task = asyncio.create_task(queue_to_list(queue))
+    list_task = asyncio.create_task(queue_to_list(queue_updated))
     await bulk_crawl_and_write(queue, shops.shoplist, search_term)
+    await update_products(queue, queue_updated)
     print('---- done producing')
     l = await list_task
     print('---- c awaited')
@@ -106,6 +124,7 @@ async def test_search_and_print():
 
 
 if __name__ == "__main__":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(test_search_and_print())
 
 

@@ -6,148 +6,127 @@ from currency import StringToCurrency
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import json
-from collections import namedtuple
+from recordtype import recordtype
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
 
-Shop = namedtuple("Shop", ["name", "cookies", "search_url", "parser"])
-ShopResults = namedtuple("ShopResults", ["name", "url", "image", "price", "abv"])
+Shop = recordtype("Shop", ["name", "cookies", "search_url", "parser", "product_parser"])
+Product = recordtype("Product", ["shop", "name", "url", "update_url", "image", "price", "abv", "volume"], default=None)
 
 def remove_whitespace(s):
     return re.sub(r"\s\s+", " ", s)
 
 
-async def parse_d12(soup: BeautifulSoup, queue: asyncio.Queue):
+async def parse_d12_product(product: Product, soup: BeautifulSoup):
+    data = json.loads(str(soup))
+    try:
+        abv_object = next(item for item in data['features'] if item ["description"] == "Alcoholpercentage")
+        product.abv = abv_object["value"]["description"]
+    except:
+        pass
+    try:
+        vol_object = next(item for item in data['features'] if item ["description"] == "Inhoud")
+        product.volume = vol_object["value"]["description"]
+    except:
+        pass
+
+
+async def parse_the_old_pipe_product(shop: Shop, soup: BeautifulSoup):
+    raise NotImplementedError()
+
+async def parse_whiskysite_product(shop: Shop, soup: BeautifulSoup):
+    raise NotImplementedError()
+
+async def parse_whiskybase_shop_product(shop: Shop, soup: BeautifulSoup):
+    raise NotImplementedError()
+
+async def parse_drankgigant_product(shop: Shop, soup: BeautifulSoup):
+    raise NotImplementedError()
+
+async def parse_vinabc_product(shop: Shop, soup: BeautifulSoup):
+    raise NotImplementedError()
+
+async def parse_d12(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
     all_products_soup = soup.find_all("a", class_="product_top")
-    # results = []
     for prod in all_products_soup:
-        price = prod.find("span", class_="product_aanbieding_prijs").get_text()
-        price = StringToCurrency(price)
-        name = prod.find("div", class_="product_title").get_text()
-        print(f"d12 {name}")
-        url = "https://drankdozijn.nl" + prod.get("href")
-        image = prod.find("div", class_="product_image").find("img").get("src")
-        abv = None
-        await queue.put(ShopResults(name, url, image, price, abv))
+        p = Product(shop=shop)
+        p.price = prod.find("span", class_="product_aanbieding_prijs").get_text()
+        p.price = StringToCurrency(p.price)
+        p.name = prod.find("div", class_="product_title").get_text()
+        alias =  prod.get("href")
+        p.url = "https://drankdozijn.nl" + alias
+        p.update_url = "https://es-api.drankdozijn.nl/product?country=NL&language=nl&page_template=artikel&alias=%s" % alias.split('/')[-1]
+        p.image = prod.find("div", class_="product_image").find("img").get("src")
+        await queue.put(p)
 
-
-
-async def parse_passie_voor_whisky(soup: BeautifulSoup, queue: asyncio.Queue):
+async def parse_passie_voor_whisky(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
     all_products_soup = soup.find_all("div", class_="product-container")
 
     for prod in all_products_soup:
-        price = (
+        p = Product(shop=shop)
+        p.price = (
             prod.find("div", class_="pro_second_box")
             .find("meta", itemprop="price")
             .get("content")
         )
-        name = prod.find("div", class_="pro_second_box").find(
+        p.name = prod.find("div", class_="pro_second_box").find(
             "h5").find("a").get_text()
-        url = prod.find("div", class_="pro_second_box").find(
+        p.url = prod.find("div", class_="pro_second_box").find(
             "h5").find("a").get("href")
-        image = (
+        p.image = (
             prod.find("div", class_="pro_first_box").find(
                 "a").find("img").get("src")
         )
-        price = StringToCurrency(price)
-        abv = None
-        await queue.put(ShopResults(name, url, image, price, abv))
+        p.price = StringToCurrency(p.price)
+        await queue.put(p)
 
 
-# async def get_d12_results(shopname, searchterm):
-#     page = requests.get(
-#         "https://drankdozijn.nl/zoeken?zoekterm=" + searchterm,
-#         cookies=dict(validatie_cookie="true"), headers=headers
-#     )
-#     soup = BeautifulSoup(page.content, "html.parser")
-#     all_products_soup = soup.find_all("a", class_="product_top")
-#     results = []
-#     for prod in all_products_soup:
-#         price = prod.find("span", class_="product_aanbieding_prijs").get_text()
-#         price = StringToCurrency(price)
-#         name = prod.find("div", class_="product_title").get_text()
-#         url = "https://drankdozijn.nl" + prod.get("href")
-#         image = prod.find("div", class_="product_image").find("img").get("src")
-#         result = [
-#             {"name": name, "price": price, "url": url,
-#                 "shop": shopname, "img": image}
-#         ]
-#         await queue.put(result)
-#         print(f"{shopname} produced {name}")
+async def parse_the_old_pipe(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
+    all_products_soup = soup.find_all("div", class_="product-block-inner")
+
+    for prod in all_products_soup:
+        p = Product(shop=shop)
+        p.price = prod.find("span", class_="price-new").get_text()
+        p.price = StringToCurrency(p.price)
+        p.name = prod.find("h3").find("a").get_text()
+        p.url = prod.find("h3").find("a").get("href")
+        p.image = prod.find("div", class_="image noborder").find(
+            "img").get("src")
+        await queue.put(p)
 
 
-# async def get_theoldpipe_results(shopname, searchterm):
-#     page = requests.get(
-#         "https://www.theoldpipe.com/nl/search/" + searchterm, headers=headers)
-#     soup = BeautifulSoup(page.content, "html.parser")
-#     all_products_soup = soup.find_all("div", class_="product-block-inner")
-
-#     results = []
-#     for prod in all_products_soup:
-#         price = prod.find("span", class_="price-new").get_text()
-#         price = StringToCurrency(price)
-#         name = prod.find("h3").find("a").get_text()
-#         url = prod.find("h3").find("a").get("href")
-#         image = prod.find("div", class_="image noborder").find(
-#             "img").get("src")
-#         result = [
-#             {"name": name, "price": price, "url": url,
-#                 "shop": shopname, "img": image}
-#         ]
-#         await queue.put(result)
-#         print(f"{shopname} produced {name}")
+async def parse_whiskysite(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
+    all_products_soup = soup.find_all("div", class_="product-block")
+    for prod in all_products_soup:
+        p = Product(shop=shop)
+        p.name = prod.find("a", class_="title").get_text()
+        p.price = prod.find("div", class_="product-block-price").get_text()
+        p.price = StringToCurrency(p.price)
+        p.url = prod.find("a", class_="title").get("href")
+        p.name = remove_whitespace(p.name)
+        p.image = prod.find(
+            "div", class_="product-block-image").find("img").get("src")
+        await queue.put(p)
 
 
-# async def get_whiskysite_results(shopname, searchterm):
-#     page = requests.get(
-#         "https://www.whiskysite.nl/nl/search/" + searchterm,
-#         cookies=dict(age_check="done"), headers=headers
-#     )
-#     soup = BeautifulSoup(page.content, "html.parser")
-#     all_products_soup = soup.find_all("div", class_="product-block")
-#     results = []
-#     for prod in all_products_soup:
-#         name = prod.find("a", class_="title").get_text()
-#         price = prod.find("div", class_="product-block-price").get_text()
-#         price = StringToCurrency(price)
-#         url = prod.find("a", class_="title").get("href")
-#         name = remove_whitespace(name)
-#         image = prod.find(
-#             "div", class_="product-block-image").find("img").get("src")
-#         result = [
-#             {"name": name, "price": price, "url": url,
-#                 "shop": shopname, "img": image}
-#         ]
-#         await queue.put(result)
-#         print(f"{shopname} produced {name}")
+
+async def parse_whiskybase_shop(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
+    all_products_soup = soup.find_all(
+        "div", class_="product-block")
+    for prod in all_products_soup:
+        p = Product(shop=shop)
+        p.name = prod.find("a", class_="title").get_text()
+        p.price = prod.find("div", class_="product-block-price").get_text()
+        p.price = StringToCurrency(p.price)
+        p.url = prod.find("a", class_="title").get("href")
+        p.name = remove_whitespace(p.name)
+        p.image = prod.find(
+            "div", class_="product-block-image").find("img").get("src")
+        await queue.put(p)
 
 
-# async def get_whiskybase_shop_results(queue, shopname, searchterm):
-#     page = requests.get(
-#         "https://shop.whiskybase.com/nl/search/" + searchterm,
-#         cookies=dict(age_check="done"), headers=headers
-#     )
-#     soup = BeautifulSoup(page.content, "html.parser")
-#     all_products_soup = soup.find_all(
-#         "div", class_="product-block")
-#     results = []
-#     for prod in all_products_soup:
-#         name = prod.find("a", class_="title").get_text()
-#         price = prod.find("div", class_="product-block-price").get_text()
-#         price = StringToCurrency(price)
-#         url = prod.find("a", class_="title").get("href")
-#         name = remove_whitespace(name)
-#         image = prod.find(
-#             "div", class_="product-block-image").find("img").get("src")
-#         result = [
-#             {"name": name, "price": price, "url": url,
-#                 "shop": shopname, "img": image}
-#         ]
-#         await queue.put(result)
-#         print(f"{shopname} produced {name}")
-
-# async def get_product_vinabc(queue, prod, shopname):
+# async def parse_vinabc_product(queue, prod, shop: Shop):
 #     name = prod['title']
 #     url = prod['href']
 #     image = BeautifulSoup(prod['product_img']).find("img").get("src")
@@ -157,124 +136,83 @@ async def parse_passie_voor_whisky(soup: BeautifulSoup, queue: asyncio.Queue):
 #     prodsoup = BeautifulSoup(prodpage.content, "html.parser")
 #     price = prodsoup.find('span', itemprop='price').get("content")
 #     abv = remove_whitespace(prodsoup.find('span', id='hikashop_product_custom_value_31').get_text())
-#     result = [
-#         {"name": name, "price": price, "url": url,
-#             "shop": shopname, "img": image}
-#     ]
-#     await queue.put(result)
-#     print(f"{shopname} produced {name}")
+#     await queue.put(p)
 
-
-# async def get_vinabc_shop_results(queue, shopname, searchterm):
-#     page = requests.get(
-#         r"https://vinabc.nl/nl/?option=com_universal_ajax_live_search&lang=nl-NL&module_id=177&search_exp=" + searchterm + r"&dojo_preventCache=1",
-#         cookies=dict(age_check="done"), headers=headers
-#     )
-#     decoded_string = page.content.decode("utf8")
+# async def parse_vinabc(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
+#     # decoded_string = page.content.decode("utf8")
+#     decoded_string = soup.text.encode().decode("unicode_escape").replace("\n","")
 #     decoded_string = decoded_string[decoded_string.index('['):] # strip the header text
 #     decoded_string = decoded_string[:decoded_string.rindex(']')+1] # strip the header text
 #     products = json.loads(decoded_string)
-#     results = []
-#     prod_producers = [asyncio.create_task(get_product_vinabc(queue, prod, shopname)) for prod in products]
+# #     prod_producers = [asyncio.create_task(parse_vinabc_product(queue, prod, shop)) for prod in products]
 #     await asyncio.gather(*prod_producers)
 
 
-# async def get_drankgigant_results(queue, shopname, searchterm):
-#     page = requests.get(
-#         "https://www.drankgigant.nl/catalogsearch/result/?q=" + searchterm,
-#         cookies=dict(age_check="done"), headers=headers
-#     )
-#     soup = BeautifulSoup(page.content, "html.parser")
-#     all_products_soup = soup.find_all(
-#         "div", class_="item product product-item")
-#     results = []
-#     for prod in all_products_soup:
-#         name = prod.find("a", class_="product-item-link").get_text()
-#         price = prod.find("span", class_="price").get_text()
-#         price = StringToCurrency(price)
-#         url = prod.find(
-#             "a", class_="product-item-link").get("href")
-#         name = remove_whitespace(name)
-#         image = prod.find(
-#             "img", class_="photo image").get("src")
-#         result = [
-#             {"name": name, "price": price, "url": url,
-#                 "shop": shopname, "img": image}
-#         ]
-#         await queue.put(result)
-#         print(f"{shopname} produced {name}")
+async def parse_drankgigant(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
+    all_products_soup = soup.find_all(
+        "div", class_="item product product-item")
+    for prod in all_products_soup:
+        p = Product(shop=shop)
+        name = prod.find("a", class_="product-item-link").get_text()
+        p.price = prod.find("span", class_="price").get_text()
+        p.price = StringToCurrency(p.price)
+        p.url = prod.find(
+            "a", class_="product-item-link").get("href")
+        p.name = remove_whitespace(p.name)
+        p.image = prod.find(
+            "img", class_="photo image").get("src")
+        await queue.put(p)
 
-
-# async def get_shop_results(searchterm, shopname=None, minPrice=None, maxPrice=None):
-#     queue = asyncio.Queue()
-
-#     if not searchterm or searchterm == "None":
-#         return
-
-#     shopnames = (
-#         shoplist.keys() if shopname == "all" or shopname == "None" or shopname is None else [
-#             shopname]
-#     )
-
-#     producers = [asyncio.create_task(get_drankgigant_results(queue, shop, searchterm)) for shop in shopnames]
-
-#     consumers = [asyncio.create_task(consumer(queue))
-#                  for _ in range(10)]
-
-#     # with both producers and consumers running, wait for
-#     # the producers to finish
-#     await asyncio.gather(*producers)
-#     print('---- done producing')
-
-#     # wait for the remaining tasks to be processed
-#     # await queue.join()
-
-#     # cancel the consumers, which are now idle
-#     for c in consumers:
-#         c.cancel()
 
 shoplist = [
     Shop(
         "d12", 
         dict(validatie_cookie="true"),
         "https://drankdozijn.nl/zoeken?zoekterm=%s",
-        parse_d12
+        parse_d12,
+        parse_d12_product,
         ),
     # Shop(
     #     "the_old_pipe", 
     #     None,
     #     "https://www.theoldpipe.com/nl/search/%s",
-    #     parse_the_old_pipe
+    #     parse_the_old_pipe,
+    #     parse_the_old_pipe_product
     #     ),
     # Shop(
-    #     "whiskysite", 
+    #     "whiskysite",
     #     dict(age_check="done"),
     #     "https://www.whiskysite.nl/nl/search/%s",
-    #     parse_whiskysite
+    #     parse_whiskysite,
+    #     parse_whiskysite_product
     #     ),
-    Shop(
-        "passie_voor_whisky", 
-        dict(age_check="done"),
-        "https://www.passievoorwhisky.nl/nl/zoeken?controller=search&orderby=position&orderway=desc&search_query=%s",
-        parse_passie_voor_whisky #probably same as whiskysite
-        ),
+    # Shop(
+    #     "passie_voor_whisky",   # werkt nog niet
+    #     dict(age_check="done"),
+    #     "https://www.passievoorwhisky.nl/nl/zoeken?controller=search&orderby=position&orderway=desc&search_query=%s",
+    #     parse_whiskysite, #probably same as whiskysite,
+    #     parse_whiskysite_product #probably same as whiskysite_product
+    #     ),
     # Shop(
     #     "whiskybase_shop", 
     #     None,
     #     "https://shop.whiskybase.com/nl/search/%s",
-    #     parse_whiskybase_shop
+    #     parse_whiskybase_shop,
+    #     parse_whiskybase_shop_product
     #     ),
     # Shop(
     #     "drankgigant", 
     #     None,
     #     "https://www.drankgigant.nl/catalogsearch/result/?q=%s",
-    #     parse_drankgigant
+    #     parse_drankgigant,
+    #     parse_drankgigant_product
     #     ),
     # Shop(
     #     "vinabc", 
     #     None,
     #     "https://shop.whiskybase.com/nl/search/%s",
-    #     parse_vinabc
+    #     parse_vinabc,
+    #     parse_vinabc_product
     #     )
 ]
 
