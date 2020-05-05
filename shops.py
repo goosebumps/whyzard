@@ -32,19 +32,32 @@ async def parse_d12_product(product: Product, soup: BeautifulSoup):
         pass
 
 
-async def parse_the_old_pipe_product(shop: Shop, soup: BeautifulSoup):
+async def parse_the_old_pipe_product(product: Product, soup: BeautifulSoup):
+    prod_text = soup.find("div", class_="page information active").find("p").get_text()
+    try:
+        regex = r"\b(\d+[.,]?\d+)(?:%|percent\b)"
+        matches = re.search(regex, prod_text)
+        product.abv = matches.group(0)
+    except:
+        pass
+
+    try:
+        regex = r"\b(\d+[.,]?\d+)(?:cl|CL|Cl\b)"
+        matches = re.search(regex, prod_text)
+        product.volume = matches.group(0)
+    except:
+        pass
+
+async def parse_whiskysite_product(product: Product, soup: BeautifulSoup):
     raise NotImplementedError()
 
-async def parse_whiskysite_product(shop: Shop, soup: BeautifulSoup):
+async def parse_whiskybase_shop_product(product: Product, soup: BeautifulSoup):
     raise NotImplementedError()
 
-async def parse_whiskybase_shop_product(shop: Shop, soup: BeautifulSoup):
+async def parse_drankgigant_product(product: Product, soup: BeautifulSoup):
     raise NotImplementedError()
 
-async def parse_drankgigant_product(shop: Shop, soup: BeautifulSoup):
-    raise NotImplementedError()
-
-async def parse_vinabc_product(shop: Shop, soup: BeautifulSoup):
+async def parse_vinabc_product(product: Product, soup: BeautifulSoup):
     raise NotImplementedError()
 
 async def parse_d12(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queue):
@@ -165,20 +178,20 @@ async def parse_drankgigant(shop: Shop, soup: BeautifulSoup, queue: asyncio.Queu
 
 
 shoplist = [
-    Shop(
-        "d12", 
-        dict(validatie_cookie="true"),
-        "https://drankdozijn.nl/zoeken?zoekterm=%s",
-        parse_d12,
-        parse_d12_product,
-        ),
     # Shop(
-    #     "the_old_pipe", 
-    #     None,
-    #     "https://www.theoldpipe.com/nl/search/%s",
-    #     parse_the_old_pipe,
-    #     parse_the_old_pipe_product
+    #     "d12", 
+    #     dict(validatie_cookie="true"),
+    #     "https://drankdozijn.nl/zoeken?zoekterm=%s",
+    #     parse_d12,
+    #     parse_d12_product,
     #     ),
+    Shop(
+        "the_old_pipe", 
+        None,
+        "https://www.theoldpipe.com/nl/search/%s",
+        parse_the_old_pipe,
+        parse_the_old_pipe_product
+        ),
     # Shop(
     #     "whiskysite",
     #     dict(age_check="done"),

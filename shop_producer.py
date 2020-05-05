@@ -47,7 +47,8 @@ async def update_products(queue_in: asyncio.Queue, queue_out: asyncio.Queue):
             await queue_out.put(None)
             break
         queue_in.task_done()
-        soup = await get_soup(product.update_url, session, product.shop.cookies)  #     soup = await get_soup(url, session, shop.cookies)
+        url = product.url if product.update_url is None else product.update_url
+        soup = await get_soup(url, session, product.shop.cookies)  #     soup = await get_soup(url, session, shop.cookies)
         try:
             updated_product = await product.shop.product_parser(product, soup)
         except Exception as e:
